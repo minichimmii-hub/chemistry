@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alchemy God: 150+ Combinations</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Inter:wght@300;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --common: #888; --rare: #00d2ff; --epic: #bd00ff; --legendary: #ffae00; --mythic: #ff0055;
+            --bg: #020205; --panel: rgba(15, 15, 25, 0.95);
+        }
+        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; background: var(--bg); font-family: 'Inter', sans-serif; color: white; }
+        
+        .game-ui { display: flex; height: 100vh; position: relative; z-index: 10; }
+
+        /* --- LEFT SIDE: STORAGE --- */
+        .storage-panel { 
+            width: 350px; background: var(--panel); border-right: 1px solid #333; 
+            display: flex; flex-direction: column;
+        }
+        .header { padding: 20px; border-bottom: 1px solid #333; }
+        #searchBar { width: 100%; padding: 8px; background: #000; border: 1px solid #444; color: white; border-radius: 5px; margin-top: 10px; }
+        .grid-list { flex-grow: 1; overflow-y: auto; padding: 15px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+
+        .item-card { 
+            background: rgba(255,255,255,0.03); border-radius: 8px; padding: 10px; text-align: center; 
+            cursor: pointer; border: 1px solid #222; transition: 0.2s;
+        }
+        .item-card:hover { transform: scale(1.05); background: rgba(255,255,255,0.08); }
+
+        /* --- CENTER: FORGE --- */
+        .main-lab { flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle, #111 0%, #000 100%); }
+        .forge-circle {
+            width: 380px; height: 380px; border: 2px solid rgba(255,255,255,0.05);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center; gap: 40px;
+            position: relative; box-shadow: 0 0 100px rgba(0,210,255,0.05);
+        }
+        .slot {
+            width: 100px; height: 100px; background: #000; border: 2px solid #333;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 3rem;
+            transition: 0.3s; cursor: pointer;
+        }
+        .slot.active { border-color: var(--rare); box-shadow: 0 0 20px var(--rare); }
+
+        .btn-fuse {
+            margin-top: 50px; padding: 20px 80px; font-family: 'Orbitron'; background: linear-gradient(45deg, #00d2ff, #3a7bd5);
+            border: none; border-radius: 50px; color: white; font-weight: bold; cursor: pointer; box-shadow: 0 0 30px rgba(0,210,255,0.3);
+        }
+
+        /* --- RIGHT SIDE: BACKPACK --- */
+        .inventory-panel { width: 300px; background: var(--panel); border-left: 1px solid #333; display: flex; flex-direction: column; padding: 20px; }
+        .backpack-slot {
+            height: 65px; background: rgba(0,0,0,0.4); border: 1px dashed #444; margin-bottom: 12px;
+            border-radius: 10px; display: flex; align-items: center; padding: 0 15px; cursor: pointer;
+        }
+        .backpack-slot.filled { border: 1px solid var(--rare); background: rgba(0,210,255,0.05); }
+
+        /* --- DISCOVERY POPUP --- */
+        #discovery {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.98); z-index: 1000;
+            display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+        }
+        .rarity-glow { font-size: 10rem; filter: drop-shadow(0 0 30px white); margin: 20px; }
+
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-thumb { background: #333; }
+    </style>
+</head>
+<body>
+
+<div class="game-ui">
+    <aside class="storage-panel">
+        <div class="header">
+            <h2 style="font-family: Orbitron; color: var(--rare); margin:0;">GUDANG</h2>
+            <p id="progress" style="font-size: 0.8rem; opacity: 0.6;">Discovered: 4 / 150+</p>
+            <input type="text" id="searchBar" placeholder="Cari item..." oninput="renderStorage()">
+        </div>
+        <div class="grid-list" id="storage-list"></div>
+    </aside>
+
+    <main class="main-lab">
+        <div style="font-family: Orbitron; color: var(--legendary); margin-bottom: 20px;">🪙 <span id="gold-val">0</span></div>
+        <div class="forge-circle">
+            <div class="slot" id="forge-0" onclick="removeFromForge(0)"></div>
+            <div class="slot" id="forge-1" onclick="removeFromForge(1)"></div>
+        </div>
+        <button class="btn-fuse" onclick="transmute()">TRANSMUTE</button>
+    </main>
+
+    <aside class="inventory-panel">
+        <h2 style="font-family: Orbitron; margin:0;">TAS AKTIF</h2>
+        <p id="inv-count" style="font-size: 0.8rem; margin-bottom: 20px;">Kapasitas: 0/6</p>
+        <div id="backpack-list" style="flex-grow: 1;"></div>
+        <button class="btn-fuse" style="padding:10px; font-size:0.7rem;" onclick="upgradeInv()">UPGRADE SLOT (💰 500)</button>
+    </aside>
+</div>
+
+<div id="discovery" onclick="this.style.display='none'">
+    <h3 id="disc-rarity" style="letter-spacing: 5px;">NEW ITEM</h3>
+    <div id="disc-emoji" class="rarity-glow"></div>
+    <h1 id="disc-name" style="font-family: Orbitron; font-size: 3rem; margin:0;"></h1>
+    <p style="margin-top: 30px; opacity: 0.5;">Klik di mana saja untuk lanjut</p>
+</div>
+
+<script>
+    // --- DATABASE 150+ ITEMS & RECIPES ---
+    const ITEMS = {
+        'api': {n:'Api', e:'🔥', r:'common'}, 'air': {n:'Air', e:'💧', r:'common'}, 'tanah': {n:'Tanah', e:'🌍', r:'common'}, 'udara': {n:'Udara', e:'💨', r:'common'},
+        'lava': {n:'Lava', e:'🌋', r:'common'}, 'batu': {n:'Batu', e:'🪨', r:'common'}, 'uap': {n:'Uap', e:'☁️', r:'common'}, 'lumpur': {n:'Lumpur', e:'💩', r:'common'},
+        'besi': {n:'Besi', e:'⛓️', r:'rare'}, 'kaca': {n:'Kaca', e:'💎', r:'rare'}, 'pasir': {n:'Pasir', e:'⏳', r:'common'}, 'listrik': {n:'Listrik', e:'⚡', r:'rare'},
+        'baja': {n:'Baja', e:'🏗️', r:'rare'}, 'emas': {n:'Emas', e:'🪙', r:'rare'}, 'tanaman': {n:'Tanaman', e:'🌱', r:'common'}, 'pohon': {n:'Pohon', e:'🌳', r:'rare'},
+        'kehidupan': {n:'Kehidupan', e:'🧬', r:'epic'}, 'manusia': {n:'Manusia', e:'👨', r:'epic'}, 'robot': {n:'Robot', e:'🤖', r:'epic'}, 'senjata': {n:'Senjata', e:'🔫', r:'rare'},
+        'pedang': {n:'Pedang', e:'⚔️', r:'rare'}, 'kacamata': {n:'Kacamata', e:'👓', r:'rare'}, 'komputer': {n:'Komputer', e:'💻', r:'epic'}, 'ai': {n:'AI', e:'🧠', r:'legendary'},
+        'cyborg': {n:'Cyborg', e:'🦾', r:'legendary'}, 'roket': {n:'Roket', e:'🚀', r:'epic'}, 'bulan': {n:'Bulan', e:'🌙', r:'epic'}, 'matahari': {n:'Matahari', e:'☀️', r:'legendary'},
+        'bintang': {n:'Bintang', e:'⭐', r:'legendary'}, 'galaksi': {n:'Galaksi', e:'🌌', r:'mythic'}, 'alien': {n:'Alien', e:'👽', r:'legendary'}, 'ufo': {n:'UFO', e:'🛸', r:'legendary'},
+        'waktu': {n:'Waktu', e:'🕒', r:'mythic'}, 'mesin_waktu': {n:'Time Machine', e:'⌛', r:'mythic'}, 'dewa': {n:'Dewa', e:'👑', r:'mythic'}, 'surga': {n:'Surga', e:'☁️', r:'mythic'},
+        'nuklir': {n:'Nuklir', e:'☢️', r:'legendary'}, 'blackhole': {n:'Black Hole', e:'🕳️', r:'mythic'}, 'internet': {n:'Internet', e:'🌐', r:'epic'}, 'smartphone': {n:'Smartphone', e:'📱', r:'epic'}
+    };
+
+    const RECIPES = {
+        'api+air': 'uap', 'api+tanah': 'lava', 'air+tanah': 'lumpur', 'udara+tanah': 'debu', 'api+batu': 'besi', 'lava+air': 'batu', 'batu+udara': 'pasir', 'pasir+api': 'kaca',
+        'besi+api': 'baja', 'besi+listrik': 'robot', 'baja+listrik': 'komputer', 'komputer+internet': 'ai', 'ai+manusia': 'cyborg', 'besi+api': 'listrik',
+        'air+tanah': 'lumpur', 'lumpur+api': 'bata', 'bata+bata': 'rumah', 'manusia+rumah': 'kota', 'udara+api': 'energi', 'energi+lumpur': 'bakteri',
+        'bakteri+waktu': 'kehidupan', 'kehidupan+tanah': 'manusia', 'manusia+senjata': 'prajurit', 'manusia+besi': 'pedang', 'besi+kaca': 'kacamata',
+        'api+pasir': 'kaca', 'kaca+udara': 'awan', 'awan+air': 'hujan', 'hujan+tanah': 'tanaman', 'tanaman+tanah': 'pohon', 'pohon+api': 'arang',
+        'roket+manusia': 'astronot', 'astronot+bulan': 'alien', 'bintang+bintang': 'galaksi', 'galaksi+galaksi': 'alam_semesta', 'ai+listrik': 'internet',
+        'besi+emas': 'piala', 'manusia+emas': 'raja', 'raja+dewa': 'mitologi', 'api+api': 'energi', 'udara+udara': 'angin', 'angin+pasir': 'badai',
+        'komputer+manusia': 'internet', 'internet+udara': 'wi-fi', 'wi-fi+manusia': 'smartphone', 'besi+udara': 'pesawat', 'pesawat+roket': 'ufo',
+        'api+energi': 'nuklir', 'nuklir+bintang': 'blackhole', 'blackhole+waktu': 'mesin_waktu', 'manusia+waktu': 'tua', 'tua+kehidupan': 'dewa'
+    };
+
+    // --- GAME STATE ---
+    let state = JSON.parse(localStorage.getItem('alchemy_god_150')) || {
+        storage: ['api', 'air', 'tanah', 'udara'],
+        backpack: [],
+        forge: [],
+        maxInv: 6,
+        gold: 100
+    };
+
+    function save() { localStorage.setItem('alchemy_god_150', JSON.stringify(state)); }
+
+    function renderStorage() {
+        const list = document.getElementById('storage-list');
+        const search = document.getElementById('searchBar').value.toLowerCase();
+        list.innerHTML = '';
+        state.storage.forEach(id => {
+            const item = ITEMS[id] || {n: id, e:'📦', r:'common'};
+            if (item.n.toLowerCase().includes(search)) {
+                const div = document.createElement('div');
+                div.className = 'item-card';
+                div.style.borderBottom = `2px solid var(--${item.r})`;
+                div.innerHTML = `<span style="font-size:1.8rem">${item.e}</span><br><small>${item.n}</small>`;
+                div.onclick = () => addToBackpack(id);
+                list.appendChild(div);
+            }
+        });
+        document.getElementById('progress').innerText = `Discovered: ${state.storage.length} / 150+`;
+    }
+
+    function renderBackpack() {
+        const list = document.getElementById('backpack-list');
+        list.innerHTML = '';
+        for (let i = 0; i < state.maxInv; i++) {
+            const id = state.backpack[i];
+            const div = document.createElement('div');
+            div.className = `backpack-slot ${id ? 'filled' : ''}`;
+            if (id) {
+                const item = ITEMS[id] || {n: id, e:'📦'};
+                div.innerHTML = `<span style="font-size:2rem; margin-right:15px;">${item.e}</span> <b>${item.n}</b>`;
+                div.onclick = () => addToForge(i);
+            } else {
+                div.innerHTML = `<span style="opacity:0.2">Kosong</span>`;
+            }
+            list.appendChild(div);
+        }
+        document.getElementById('inv-count').innerText = `Kapasitas: ${state.backpack.length}/${state.maxInv}`;
+        document.getElementById('gold-val').innerText = state.gold;
+    }
+
+    function addToBackpack(id) {
+        if (state.backpack.length < state.maxInv) {
+            state.backpack.push(id);
+            renderBackpack();
+        }
+    }
+
+    function addToForge(idx) {
+        if (state.forge.length < 2) {
+            state.forge.push(state.backpack.splice(idx, 1)[0]);
+            renderBackpack();
+            updateForgeUI();
+        }
+    }
+
+    function removeFromForge(idx) {
+        if (state.forge[idx]) {
+            state.backpack.push(state.forge.splice(idx, 1)[0]);
+            renderBackpack();
+            updateForgeUI();
+        }
+    }
+
+    function updateForgeUI() {
+        for (let i = 0; i < 2; i++) {
+            const s = document.getElementById(`forge-${i}`);
+            if (state.forge[i]) {
+                s.innerText = ITEMS[state.forge[i]].e;
+                s.classList.add('active');
+            } else {
+                s.innerText = '';
+                s.classList.remove('active');
+            }
+        }
+    }
+
+    function transmute() {
+        if (state.forge.length < 2) return;
+        const combo = state.forge.sort().join('+');
+        const resId = RECIPES[combo] || 'debu';
+
+        if (!state.storage.includes(resId)) {
+            state.storage.push(resId);
+            state.gold += (ITEMS[resId]?.r === 'legendary' ? 500 : 100);
+            showDiscovery(resId);
+        }
+        
+        state.forge = [];
+        updateForgeUI();
+        renderStorage();
+        renderBackpack();
+        save();
+    }
+
+    function showDiscovery(id) {
+        const item = ITEMS[id] || {n: id, e:'🌫️', r:'common'};
+        const overlay = document.getElementById('discovery');
+        const name = document.getElementById('disc-name');
+        const emoji = document.getElementById('disc-emoji');
+        const rarity = document.getElementById('disc-rarity');
+
+        rarity.innerText = (item.r || 'common').toUpperCase() + " ITEM FOUND";
+        rarity.style.color = `var(--${item.r})`;
+        name.innerText = item.n;
+        name.style.color = `var(--${item.r})`;
+        emoji.innerText = item.e;
+        emoji.style.filter = `drop-shadow(0 0 20px var(--${item.r}))`;
+        
+        overlay.style.display = 'flex';
+    }
+
+    function upgradeInv() {
+        if (state.gold >= 500) {
+            state.gold -= 500;
+            state.maxInv += 1;
+            renderBackpack();
+            save();
+        } else { alert("Emas tidak cukup!"); }
+    }
+
+    window.onload = () => { renderStorage(); renderBackpack(); };
+</script>
+</body>
+</html>
